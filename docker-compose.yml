@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: ./springdepeasy-backend
+    container_name: springdepeasy-backend
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - JAVA_OPTS=-Xmx512m

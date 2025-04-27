@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery } from 'react-query';
 import axios from 'axios';
 
@@ -17,9 +17,35 @@ interface AppProps {
 
 function App({ vscode }: AppProps) {
   const [search, setSearch] = useState('');
+  const [backendUrl, setBackendUrl] = useState('http://localhost:8080');
   
-  // This will be implemented in Week 5-6 to fetch from the Spring Boot backend
-  // For now, let's create a placeholder query
+  // Handle messages from VS Code extension
+  useEffect(() => {
+    const messageHandler = (event: MessageEvent) => {
+      const message = event.data;
+      
+      switch (message.command) {
+        case 'setState':
+          if (message.backendUrl) {
+            setBackendUrl(message.backendUrl);
+          }
+          break;
+      }
+    };
+    
+    // Add event listener
+    window.addEventListener('message', messageHandler);
+    
+    // Notify VS Code that webview is ready
+    vscode.postMessage({ command: 'init' });
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('message', messageHandler);
+    };
+  }, [vscode]);
+  
+  // For now, let's create a placeholder query while we develop the backend integration
   const { data, isLoading, error } = useQuery<Dependency[]>(
     ['dependencies', search],
     async () => {
@@ -38,6 +64,18 @@ function App({ vscode }: AppProps) {
               artifactId: 'spring-boot-starter-data-jpa',
               version: '3.1.0',
               description: 'Starter for using Spring Data JPA with Hibernate'
+            },
+            {
+              groupId: 'org.springframework.boot',
+              artifactId: 'spring-boot-starter-security',
+              version: '3.1.0',
+              description: 'Starter for using Spring Security'
+            },
+            {
+              groupId: 'org.springframework.boot',
+              artifactId: 'spring-boot-starter-actuator',
+              version: '3.1.0',
+              description: 'Starter for using Spring Boot Actuator for metrics and monitoring'
             }
           ].filter(dep => 
             !search || 
@@ -52,9 +90,20 @@ function App({ vscode }: AppProps) {
     }
   );
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Debounce search input to avoid excessive API calls
+  const debounce = (fn: Function, ms = 300) => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    return function(this: any, ...args: any[]) {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => fn.apply(this, args), ms);
+    };
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
   };
+
+  const debouncedHandleSearchChange = useCallback(debounce(handleSearchChange, 500), []);
 
   const handleAddDependency = (dependency: Dependency) => {
     // Send message to VS Code extension
@@ -72,15 +121,21 @@ function App({ vscode }: AppProps) {
           type="text"
           className="w-full p-2 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500"
           placeholder="Search dependencies (e.g., web, jpa, security)"
-          value={search}
-          onChange={handleSearch}
+          onChange={debouncedHandleSearchChange}
+          defaultValue={search}
         />
       </div>
 
       {isLoading ? (
-        <div className="text-center py-4">Loading dependencies...</div>
+        <div className="text-center py-4">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-green-500"></div>
+          <p className="mt-2">Loading dependencies...</p>
+        </div>
       ) : error ? (
-        <div className="text-center py-4 text-red-500">Error loading dependencies. Please try again.</div>
+        <div className="text-center py-4 text-red-500">
+          <p>Error loading dependencies. Please try again.</p>
+          <p className="text-sm mt-2">Make sure the backend server is running at {backendUrl}</p>
+        </div>
       ) : (
         <div className="space-y-4">
           {data && data.length > 0 ? (
@@ -89,7 +144,7 @@ function App({ vscode }: AppProps) {
                 key={`${dependency.groupId}:${dependency.artifactId}`}
                 className="p-4 border border-gray-200 rounded shadow-sm hover:shadow-md transition"
               >
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-start">
                   <div>
                     <h3 className="font-semibold text-lg">{dependency.artifactId}</h3>
                     <p className="text-sm text-gray-600">{dependency.groupId}</p>
@@ -107,7 +162,8 @@ function App({ vscode }: AppProps) {
             ))
           ) : (
             <div className="text-center py-4">
-              No dependencies found for "{search}". Try a different search term.
+              <p>No dependencies found for "{search}"</p>
+              <p className="text-sm text-gray-500 mt-2">Try a different search term</p>
             </div>
           )}
         </div>
