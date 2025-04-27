@@ -1,0 +1,20 @@
+{
+  "name": "springdepeasy",
+  "version": "1.0.0",
+  "description": "A VS Code extension to simplify Spring Boot dependency management in Maven projects",
+  "scripts": {
+    "install:all": "npm install && cd springdepeasy-extension && npm install && cd ../webview && npm install",
+    "build:webview": "cd webview && npm run build:extension",
+    "build:extension": "cd springdepeasy-extension && npm run webpack",
+    "build": "npm run build:webview && npm run build:extension",
+    "dev:webview": "cd webview && npm run dev",
+    "dev:extension": "cd springdepeasy-extension && npm run webpack-dev",
+    "package": "cd springdepeasy-extension && npm run package"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/springdepeasy.git"
+  },
+  "author": "",
+  "license": "MIT"
+}
